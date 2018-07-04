@@ -1,0 +1,5 @@
+if __name__ == '__main__':
+    import sys
+    import distributed.cli.dask_ssh
+
+    sys.exit(distributed.cli.dask_ssh.go())

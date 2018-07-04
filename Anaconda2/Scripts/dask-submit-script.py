@@ -1,0 +1,5 @@
+if __name__ == '__main__':
+    import sys
+    import distributed.cli.dask_submit
+
+    sys.exit(distributed.cli.dask_submit.go())
