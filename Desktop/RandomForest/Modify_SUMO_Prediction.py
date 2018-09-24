@@ -32,7 +32,7 @@ def replace_no_native_amino_acid(lists, datatype):
     native_amino_acid = ('A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L',
                          'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y',)
     # num_list = []
-    # print(len(lists))
+    print(len(lists))
     # print(len(lists[0]))
     # print(native_amino_acid[0])
     numlists = zeros((len(lists), 22))
@@ -132,7 +132,7 @@ def result_frequency_site(positive_site, negative_site,datatype):
                 result_site[i][j] = positive_site[i][j] - negative_site[i][j]
             elif datatype == "entropy":
                 result_site[i][j] = negative_site[i][j] - positive_site[i][j]
-    # print(result_site)
+    print(result_site)
     return result_site
 
 # 把序号表示矩阵转换到频率表示或熵表示
@@ -223,10 +223,9 @@ def entropy_of_site(arrays):
 
 # 条件频率矩阵,传入的是整体的频率矩阵
 def conditional_frequency(arrays):
-    conditional_frequency_array = zeros((len(arrays), len(arrays[0])))
+    conditional_frequency_array = zeros((len(arrays), 21))
     for site in range(len(arrays)):
         for i in range(len(arrays[0])):
-            # print(len(arrays[0]))
             if arrays[site][i] ==0:
                 conditional_frequency_array[site][i] = 0
             else:
@@ -346,24 +345,24 @@ def RandomForest_prediction(feature_data, result_data):
     feature_train, feature_test, result_train, result_test = train_test_split(feature_data, result_data, test_size=0.1)
     clf = RandomForestClassifier(max_depth=None, random_state=None, max_features=None, n_estimators=200, min_samples_leaf=100,
                                  min_samples_split=100)#, obb_score=True) #class_weight="balanced")
-    # print(clf)
+    print(clf)
     # result_train.ravel()
     clf.fit(feature_train, result_train.ravel())
     # play_class = 'yes', 'no'
     # dot_data = tree.export_graphviz(clf, out_file=None, class_names=play_class,
-    # #                                 filled=True, rounded=True, special_characters=True)
-    # # graph = pydotplus.graph_from_dot_data(dot_data)
-    # # graph.write_pdf('play1.pdf')
-    # print("系数反映每个特征的影响力。越大表示该特征在分类中起到的作用越大")
-    # print(clf.feature_importances_)
-    # answer = clf.predict(feature_train)
-    # result_train = result_train.reshape(-1)
-    # print(answer)
-    # print(result_train)
-    # print(np.mean(answer == result_train))
-    # print('------------------------------------------------')
-    # answer = clf.predict(feature_test)
-    # result_test = result_test.reshape(-1)
+    #                                 filled=True, rounded=True, special_characters=True)
+    # graph = pydotplus.graph_from_dot_data(dot_data)
+    # graph.write_pdf('play1.pdf')
+    print("系数反映每个特征的影响力。越大表示该特征在分类中起到的作用越大")
+    print(clf.feature_importances_)
+    answer = clf.predict(feature_train)
+    result_train = result_train.reshape(-1)
+    print(answer)
+    print(result_train)
+    print(np.mean(answer == result_train))
+    print('------------------------------------------------')
+    answer = clf.predict(feature_test)
+    result_test = result_test.reshape(-1)
     # print(answer)
     # for r in answer:
     #     # print(r)
@@ -426,11 +425,14 @@ def RandomForest_prediction(feature_data, result_data):
                     mcc_scores[i][j] = mcc
 
                     train_pred[valid_idx, i] = valid_pred
+                    ## Probabilities
+                    valid_proba = clf.predict_proba(X_valid)
+                    train_proba[valid_idx, :] = valid_proba
 
                     print("Model- {} and CV- {} recall: {}, acc_score: , mcc_score: {}".format(i, j, recall, acc, mcc))
-            return train_pred,recall_scores,f1_scores
-
-    rdf = RandomForestClassifier(bootstrap=True, class_weight=None, criterion='gini', max_depth=8,
+            return train_proba,train_pred,recall_scores,f1_scores
+    class_weight = {20:1.5}
+    rdf = RandomForestClassifier(bootstrap=True, class_weight=class_weight, criterion='gini', max_depth=8,
                                  max_features='auto', max_leaf_nodes=None, min_impurity_decrease=0.0,
                                  min_impurity_split=None, min_samples_leaf=4, min_samples_split=10,
                                  min_weight_fraction_leaf=0.0, n_estimators=300, n_jobs=-1, oob_score=False,
@@ -438,7 +440,7 @@ def RandomForest_prediction(feature_data, result_data):
     base_models = [rdf]
     n_splits = 5
     lgb_stack = Create_ensemble(n_splits=n_splits, base_models=base_models)
-    train_pred, recall_scores, f1_scores = lgb_stack.predict(feature_data, result_data)
+    train_proba, train_pred, recall_scores, f1_scores = lgb_stack.predict(feature_data, result_data)
     print('1. The F-1 score of the model {}\n'.format(f1_score(result_data, train_pred, average='macro')))
     print('2. The recall score of the model {}\n'.format(recall_score(result_data, train_pred, average='macro')))
     print('3. Classification report \n {} \n'.format(classification_report(result_data, train_pred)))
@@ -448,54 +450,80 @@ def RandomForest_prediction(feature_data, result_data):
     print('7. The sn score of the model {}\n'.format(f1_score(result_data, train_pred, average='macro')))
     print('8. The mcc score of the model {}\n'.format(matthews_corrcoef(result_data, train_pred, average='macro')))
 
+    def re_predict(data, threshods):
+
+        argmax = np.argmax(data)
+        if argmax == 1:
+            if data[argmax]>=threshods[argmax]:
+                return (argmax)
+            else:
+                if data[argmax-1]<=threshods[argmax-1]:
+                    return(argmax)
+        else:
+            if data[argmax]>=threshods[argmax]:
+                return (argmax)
+
+    y = label_binarize(ytrain, classes=[1, 2])
+    _, _, th1 = roc_curve(y[:, 0], train_proba[:, 0])
+    print(np.median(th1))
+    threshold = [0.47, 0.30]
+    new_pred = []
+    for i in range(train_pred.shape[0]):
+        new_pred.append(re_predict(train_proba[i, :], threshold))
+
+    print('1. The F-1 score of the model {}\n'.format(f1_score(result_data, new_pred, average='macro')))
+    print('2. The recall score of the model {}\n'.format(recall_score(result_data, new_pred, average='macro')))
+    print('3. Classification report \n {} \n'.format(classification_report(result_data, new_pred)))
+    print('4. Confusion matrix \n {} \n'.format(confusion_matrix(result_data, new_pred)))
+    print('5. The acc score of the model {}\n'.format(accuracy_score(result_data, new_pred, average='macro')))
+    print('6. The sp score of the model {}\n'.format(recall_score(result_data, new_pred, average='macro')))
+    print('7. The sn score of the model {}\n'.format(f1_score(result_data, new_pred, average='macro')))
+    print('8. The mcc score of the model {}\n'.format(matthews_corrcoef(result_data, new_pred, average='macro')))
 
 
-
-
-    #
-    # true_positive_num = 0
-    # false_positive_num = 0
-    # true_negative_num = 0
-    # false_negative_num = 0
-    # print('acc = ', np.mean(answer == result_test))
-    # for i in range(len(answer)):
-    #     if(answer[i] == result_test[i]):
-    #         if(answer[i] == 1):
-    #             true_positive_num = true_positive_num + 1
-    #         else:
-    #             true_negative_num = true_negative_num + 1
-    #     else:
-    #         if(answer[i] == 1):
-    #             false_positive_num = false_positive_num + 1
-    #         else:
-    #             false_negative_num = false_negative_num + 1
-    # print(true_negative_num)
-    # print(false_positive_num)
-    # sn = true_positive_num/(true_positive_num + false_negative_num)
-    # sp = true_negative_num/(true_negative_num + false_positive_num)
-    # acc = (true_positive_num + true_negative_num)/(true_positive_num + true_negative_num + false_positive_num + false_negative_num)
-    # mcca = true_positive_num * true_negative_num - false_positive_num * false_negative_num
-    # mccb = (true_positive_num + false_positive_num) * (true_positive_num + false_negative_num) * (true_negative_num + false_positive_num) * (true_negative_num + false_negative_num)
-    # mcc = mcca/math.sqrt(mccb)
-    # print('sn = ', sn)
-    # print('sp = ', sp)
-    # print('acc = ', acc)
-    # print('mcc = ', mcc)
-    # answer55 = clf.predict_proba(feature_test)
-    # # for r in answer55:
+    true_positive_num = 0
+    false_positive_num = 0
+    true_negative_num = 0
+    false_negative_num = 0
+    print('acc = ', np.mean(answer == result_test))
+    for i in range(len(answer)):
+        if(answer[i] == result_test[i]):
+            if(answer[i] == 1):
+                true_positive_num = true_positive_num + 1
+            else:
+                true_negative_num = true_negative_num + 1
+        else:
+            if(answer[i] == 1):
+                false_positive_num = false_positive_num + 1
+            else:
+                false_negative_num = false_negative_num + 1
+    print(true_negative_num)
+    print(false_positive_num)
+    sn = true_positive_num/(true_positive_num + false_negative_num)
+    sp = true_negative_num/(true_negative_num + false_positive_num)
+    acc = (true_positive_num + true_negative_num)/(true_positive_num + true_negative_num + false_positive_num + false_negative_num)
+    mcca = true_positive_num * true_negative_num - false_positive_num * false_negative_num
+    mccb = (true_positive_num + false_positive_num) * (true_positive_num + false_negative_num) * (true_negative_num + false_positive_num) * (true_negative_num + false_negative_num)
+    mcc = mcca/math.sqrt(mccb)
+    print('sn = ', sn)
+    print('sp = ', sp)
+    print('acc = ', acc)
+    print('mcc = ', mcc)
+    answer55 = clf.predict_proba(feature_test)
+    # for r in answer55:
     #     print(r)
     # print(clf.oob_score)
-    # y_predprob = clf.predict_proba(feature_train)[:, 1]
-    # print("AUC Score (Train): %f" % metrics.roc_auc_score(result_train, y_predprob))
-    # scores = cross_val_score(clf, feature_data, result_data, cv=10)
-    # print(scores)
-    # print("-----------------------------------")
-    # print(scores.mean())
-    # answer22 = cross_val_predict(clf, feature_data, result_data, cv=10)
-    # cacc = metrics.accuracy_score(result_data, answer22)
-    # cauc = metrics.roc_auc_score(result_data, answer22)
-    # print("cacc = ", cacc)
-    # print(" cauc = ", cauc)
+    y_predprob = clf.predict_proba(feature_train)[:, 1]
+    print("AUC Score (Train): %f" % metrics.roc_auc_score(result_train, y_predprob))
+    scores = cross_val_score(clf, feature_data, result_data, cv=10)
+    print(scores)
+    print("-----------------------------------")
+    print(scores.mean())
+    answer22 = cross_val_predict(clf, feature_data, result_data, cv=10)
+    cacc = metrics.accuracy_score(result_data, answer22)
+    cauc = metrics.roc_auc_score(result_data, answer22)
+    print("cacc = ", cacc)
+    print(" cauc = ", cauc)
 
 
 # BP神经网络的预测
@@ -527,128 +555,128 @@ def BP_prediction(feature_data, result_data):
 
 
 
-if __name__ == '__main__':
-    psiteList = getSite('PositiveData.docx')
-    nsiteList = getSite('NegativeData.docx')
-    positive = 1
-    negative = 0
-    positive_array, positive_frequency_site, positive_n_gram_frequency_site = replace_no_native_amino_acid(psiteList, positive)
-    negative_array, negative_frequency_site, negative_n_gram_frequency_site = replace_no_native_amino_acid(nsiteList, negative)
+
+psiteList = getSite('PositiveData.docx')
+nsiteList = getSite('NegativeData.docx')
+positive = 1
+negative = 0
+positive_array, positive_frequency_site, positive_n_gram_frequency_site = replace_no_native_amino_acid(psiteList, positive)
+negative_array, negative_frequency_site, negative_n_gram_frequency_site = replace_no_native_amino_acid(nsiteList, negative)
 # print("nishizuipangdi")
 # print(positive_frequency_site)
 # print(negative_frequency_site)
 # print('wao')
 
 # 只利用序列编号进行预测
-    allarray = np.concatenate((positive_array, negative_array), axis=0)
+allarray = np.concatenate((positive_array, negative_array), axis=0)
 # print(allarray)
 # # print(shape(allarray))
 # x, y = np.split(allarray, (21,), axis=1)
 
-    # 利用频率矩阵进行预测
-    sum_frequency_site = result_frequency_site(positive_frequency_site, negative_frequency_site, "frequency")
-    positive_frequency_array = to_site(positive_array, positive, sum_frequency_site)
-    negative_frequency_array = to_site(negative_array, negative, sum_frequency_site)
-    frequency_allarray = np.concatenate((positive_frequency_array, negative_frequency_array), axis=0)
-    # x, y = np.split(frequency_allarray, (21,), axis=1)
+# 利用频率矩阵进行预测
+sum_frequency_site = result_frequency_site(positive_frequency_site, negative_frequency_site, "frequency")
+positive_frequency_array = to_site(positive_array, positive, sum_frequency_site)
+negative_frequency_array = to_site(negative_array, negative, sum_frequency_site)
+frequency_allarray = np.concatenate((positive_frequency_array, negative_frequency_array), axis=0)
+# x, y = np.split(frequency_allarray, (21,), axis=1)
 
-    # 利用n_gram频率矩阵进行预测
-    sum_n_gram_frequency_site = result_frequency_site(positive_n_gram_frequency_site, negative_n_gram_frequency_site, "frequency")
-    positive_n_gram_frequency_array = to_n_gram_site(positive_array, positive, sum_n_gram_frequency_site)
-    negative_n_gram_frequency_array = to_n_gram_site(negative_array, negative, sum_n_gram_frequency_site)
-    n_gram_frequency_allarray = np.concatenate((positive_n_gram_frequency_array, negative_n_gram_frequency_array), axis=0)
-    x, y =np.split(n_gram_frequency_allarray,(20,), axis=1)
+# 利用n_gram频率矩阵进行预测
+sum_n_gram_frequency_site = result_frequency_site(positive_n_gram_frequency_site, negative_n_gram_frequency_site, "frequency")
+positive_n_gram_frequency_array = to_n_gram_site(positive_array, positive, sum_n_gram_frequency_site)
+negative_n_gram_frequency_array = to_n_gram_site(negative_array, negative, sum_n_gram_frequency_site)
+n_gram_frequency_allarray = np.concatenate((positive_n_gram_frequency_array, negative_n_gram_frequency_array), axis=0)
+x, y =np.split(n_gram_frequency_allarray,(20,), axis=1)
 
-    # 利用skip_gram频率矩阵进行预测
-    n = 1
-    positive_skip_gram_frequency_site = get_skip_gram_frequency_array(psiteList, positive, n)
-    negative_skip_gram_frequency_site = get_skip_gram_frequency_array(nsiteList, negative, n)
-    sum_skip_gram_frequency_site = result_frequency_site(positive_skip_gram_frequency_site, negative_skip_gram_frequency_site, "frequency")
-    positive_skip_gram_frequency_array = to_skip_gram_site(positive_array, positive, sum_skip_gram_frequency_site, n)
-    negative_skip_gram_frequency_array = to_skip_gram_site(negative_array, negative, sum_skip_gram_frequency_site, n)
-    skip1_gram_frequency_allarray = np.concatenate((positive_skip_gram_frequency_array, negative_skip_gram_frequency_array), axis=0)
-    # x, y = np.split(skip1_gram_frequency_allarray, (20-n,), axis=1)
+# 利用skip_gram频率矩阵进行预测
+n = 1
+positive_skip_gram_frequency_site = get_skip_gram_frequency_array(psiteList, positive, n)
+negative_skip_gram_frequency_site = get_skip_gram_frequency_array(nsiteList, negative, n)
+sum_skip_gram_frequency_site = result_frequency_site(positive_skip_gram_frequency_site, negative_skip_gram_frequency_site, "frequency")
+positive_skip_gram_frequency_array = to_skip_gram_site(positive_array, positive, sum_skip_gram_frequency_site, n)
+negative_skip_gram_frequency_array = to_skip_gram_site(negative_array, negative, sum_skip_gram_frequency_site, n)
+skip1_gram_frequency_allarray = np.concatenate((positive_skip_gram_frequency_array, negative_skip_gram_frequency_array), axis=0)
+# x, y = np.split(skip1_gram_frequency_allarray, (20-n,), axis=1)
 
-    # 利用条件频率矩阵进行预测
-    positive_conditional_frequency_array = conditional_frequency(positive_frequency_array)
-    negative_conditional_frequency_array = conditional_frequency(negative_frequency_array)
-    conditional_frequency_array = np.concatenate((positive_conditional_frequency_array, negative_conditional_frequency_array), axis=0)
-    # x, y = np.split(conditional_frequency_array, (21,), axis=1)
+# 利用条件频率矩阵进行预测
+positive_conditional_frequency_array = conditional_frequency(positive_frequency_array)
+negative_conditional_frequency_array = conditional_frequency(negative_frequency_array)
+conditional_frequency_array = np.concatenate((positive_conditional_frequency_array, negative_conditional_frequency_array), axis=0)
+# x, y = np.split(conditional_frequency_array, (21,), axis=1)
 
-    # #  利用信息熵矩阵进行预测
-    #    positive_entropy_site = to_entropy(positive_frequency_site)
-    # print("正熵样本")
-    # for r in positive_entropy_site:
-    #     print(r)
-    # print("负熵样本")
-    # negative_entropy_site = to_entropy(negative_frequency_site)
-    #   for r in negative_entropy_site:
-    #     print(r)
-    # sum_entropy_site = result_frequency_site(positive_entropy_site, negative_entropy_site, "entropy")
-    #   print("总样本")
-    # for r in sum_entropy_site:
-    #     print(r)
-    # positive_entropy_array = to_site(positive_array, 1, negative_entropy_site)
-    # negative_entropy_array = to_site(positive_array, 0, negative_entropy_site)
-    # entropy_allarray = np.concatenate((positive_entropy_array, negative_entropy_array), axis=0)
-    # x, y = np.split(entropy_allarray, (21,), axis=1)
-    # # 效果也太差了吧， 还比不上掷色子呢
+# #  利用信息熵矩阵进行预测
+# positive_entropy_site = to_entropy(positive_frequency_site)
+# print("正熵样本")
+# for r in positive_entropy_site:
+#     print(r)
+# print("负熵样本")
+# negative_entropy_site = to_entropy(negative_frequency_site)
+# for r in negative_entropy_site:
+#     print(r)
+# sum_entropy_site = result_frequency_site(positive_entropy_site, negative_entropy_site, "entropy")
+# print("总样本")
+# for r in sum_entropy_site:
+#     print(r)
+# positive_entropy_array = to_site(positive_array, 1, negative_entropy_site)
+# negative_entropy_array = to_site(positive_array, 0, negative_entropy_site)
+# entropy_allarray = np.concatenate((positive_entropy_array, negative_entropy_array), axis=0)
+# x, y = np.split(entropy_allarray, (21,), axis=1)
+# # 效果也太差了吧， 还比不上掷色子呢
 
-    # 单单只利用每一列得到的信息熵进行预测
-    only_positive_frequency_array = to_site(positive_array, 1, positive_frequency_site)
-    only_negative_frequency_array = to_site(negative_array, 0, negative_frequency_site)
-    positive_entropy_array = entropy_of_site(only_positive_frequency_array)
-    negative_entropy_array = entropy_of_site(only_negative_frequency_array)
-    entropy_allarray = np.concatenate((positive_entropy_array, negative_entropy_array), axis=0)
-    # x, y = np.split(entropy_allarray, (1,), axis=1)
+# 单单只利用每一列得到的信息熵进行预测
+only_positive_frequency_array = to_site(positive_array, 1, positive_frequency_site)
+only_negative_frequency_array = to_site(negative_array, 0, negative_frequency_site)
+positive_entropy_array = entropy_of_site(only_positive_frequency_array)
+negative_entropy_array = entropy_of_site(only_negative_frequency_array)
+entropy_allarray = np.concatenate((positive_entropy_array, negative_entropy_array), axis=0)
+# x, y = np.split(entropy_allarray, (1,), axis=1)
 
-    # 使用每一列得到的条件熵进行预测
-    only_positive_conditional_frequency_array = conditional_frequency(only_positive_frequency_array)
-    only_negative_conditional_frequency_array = conditional_frequency(only_negative_frequency_array)
-    positive_conditional_entropy_array = entropy_of_site(only_positive_conditional_frequency_array)
-    negative_conditional_entropy_array = entropy_of_site(only_negative_conditional_frequency_array)
-    conditional_entropy_allarray = np.concatenate((positive_conditional_entropy_array, negative_conditional_entropy_array), axis=0)
-    # for r in conditional_entropy_allarray:
-    #     print(r)
-    # x, y = np.split(conditional_entropy_allarray, (1,), axis=1)
+# 使用每一列得到的条件熵进行预测
+only_positive_conditional_frequency_array = conditional_frequency(only_positive_frequency_array)
+only_negative_conditional_frequency_array = conditional_frequency(only_negative_frequency_array)
+positive_conditional_entropy_array = entropy_of_site(only_positive_conditional_frequency_array)
+negative_conditional_entropy_array = entropy_of_site(only_negative_conditional_frequency_array)
+conditional_entropy_allarray = np.concatenate((positive_conditional_entropy_array, negative_conditional_entropy_array), axis=0)
+# for r in conditional_entropy_allarray:
+#     print(r)
+# x, y = np.split(conditional_entropy_allarray, (1,), axis=1)
 
-    # 信息熵加上条件熵进行预测
-    conditional_and_entropy_allarray = splice_feature_array(entropy_allarray, conditional_entropy_allarray)
-    # for r in conditional_and_entropy_allarray:
-    #       print(r)
-    # x, y = np.split(conditional_and_entropy_allarray, (len(conditional_and_entropy_allarray[0])-1, ), axis=1)
+# 信息熵加上条件熵进行预测
+conditional_and_entropy_allarray = splice_feature_array(entropy_allarray, conditional_entropy_allarray)
+# for r in conditional_and_entropy_allarray:
+#     print(r)
+# x, y = np.split(conditional_and_entropy_allarray, (len(conditional_and_entropy_allarray[0])-1, ), axis=1)
 
-    # # 再加上矩阵特异性分数 sequence specificity score(先放一边等会再加)
-    # positive_specificity_array = specificity_score_of_site(only_positive_frequency_array, only_negative_frequency_array, 1)
-    # negative_specificity_array = specificity_score_of_site(only_positive_frequency_array, only_negative_frequency_array, 0)
+# # 再加上矩阵特异性分数 sequence specificity score(先放一边等会再加)
+# positive_specificity_array = specificity_score_of_site(only_positive_frequency_array, only_negative_frequency_array, 1)
+# negative_specificity_array = specificity_score_of_site(only_positive_frequency_array, only_negative_frequency_array, 0)
 
 
 
-    # 联合频率矩阵以及信息熵和条件熵进行预测
-    union_frequency_entropy_array =splice_feature_array(frequency_allarray, conditional_and_entropy_allarray)
-    # for r in union_frequency_entropy_array:
-    #     print(r)
-    # x, y = np.split(union_frequency_entropy_array, (len(union_frequency_entropy_array[0])-1, ), axis=1)
+# 联合频率矩阵以及信息熵和条件熵进行预测
+union_frequency_entropy_array =splice_feature_array(frequency_allarray, conditional_and_entropy_allarray)
+# for r in union_frequency_entropy_array:
+#     print(r)
+# x, y = np.split(union_frequency_entropy_array, (len(union_frequency_entropy_array[0])-1, ), axis=1)
 
-    # 再加上位置特征集进行预测
-    positive_position_array = hydrophobic_position_array(psiteList, 1)
-    negative_position_array = hydrophobic_position_array(nsiteList, 0)
-    position_array = np.concatenate((positive_position_array, negative_position_array), axis=0)
-    four_feature_array = splice_feature_array(union_frequency_entropy_array, position_array)
-    # x, y = np.split(all_feature_array, (len(all_feature_array[0])-1, ), axis=1)
+# 再加上位置特征集进行预测
+positive_position_array = hydrophobic_position_array(psiteList, 1)
+negative_position_array = hydrophobic_position_array(nsiteList, 0)
+position_array = np.concatenate((positive_position_array, negative_position_array), axis=0)
+four_feature_array = splice_feature_array(union_frequency_entropy_array, position_array)
+# x, y = np.split(all_feature_array, (len(all_feature_array[0])-1, ), axis=1)
 
-    # 加上n_gram进行预测
-    five_feature_array = splice_feature_array(four_feature_array, n_gram_frequency_allarray)
-    # x, y =np.split(all_feature_array, (len(five_feature_array[0])-1, ), axis=1)
+# 加上n_gram进行预测
+five_feature_array = splice_feature_array(four_feature_array, n_gram_frequency_allarray)
+# x, y =np.split(all_feature_array, (len(five_feature_array[0])-1, ), axis=1)
 
-    # 再加上skip_gram进行预测
-    six_feature_array = splice_feature_array(five_feature_array, skip1_gram_frequency_allarray)
-    x, y =np.split(six_feature_array, (len(six_feature_array[0])-1, ), axis=1)
-    # print(shape(x))
-    # y.ravel('F')
-    # tree_prediction(x, y)
-    RandomForest_prediction(x, y.ravel())
-    # BP_prediction(x, y)
+# 再加上skip_gram进行预测
+six_feature_array = splice_feature_array(five_feature_array, skip1_gram_frequency_allarray)
+x, y =np.split(six_feature_array, (len(six_feature_array[0])-1, ), axis=1)
+# print(shape(x))
+# y.ravel('F')
+# tree_prediction(x, y)
+RandomForest_prediction(x, y.ravel())
+# BP_prediction(x, y)
 
 
 
