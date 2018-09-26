@@ -8,7 +8,7 @@ from  sklearn.model_selection import GridSearchCV
 from sklearn.datasets import make_classification
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import cross_validation, metrics
-import tensorflow as tf
+# import tensorflow as tf
 import math
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import cross_val_predict
@@ -372,41 +372,40 @@ def RandomForest_prediction(feature_data, result_data):
     # print(shape(answer))
     # print(shape(result_test))
 
-    # 利用网格搜索查找最佳参数
-    cv = StratifiedKFold(n_splits=10, shuffle=True, random_state=random_state)
-
-    rdf = RandomForestClassifier(random_state=random_state)
-    scoring = make_scorer(matthews_corrcoef)
-
-    params = {'max_depth': [6, 8, 10, 20],
-              'min_samples_split': [5, 10, 15],
-              'min_samples_leaf': [4, 8, 12],
-              'n_estimators': [300, 400, 500]
-              }
-
-    grid_clf = GridSearchCV(estimator=rdf, param_grid=params, cv=cv, n_jobs=-1, verbose=4,scoring=scoring)
-    grid_clf.fit(feature_train, result_train.ravel())
-    # 输出找到的最佳参数和分类器的组成
-    print(grid_clf.best_estimator_)
-    print(grid_clf.best_params_)
+    # # 利用网格搜索查找最佳参数
+    # cv = StratifiedKFold(n_splits=10, shuffle=True, random_state=random_state)
+    #
+    # rdf = RandomForestClassifier(random_state=random_state)
+    # scoring = make_scorer(matthews_corrcoef)
+    #
+    # params = {'max_depth': [6, 8, 10, 20],
+    #           'min_samples_split': [5, 10, 15],
+    #           'min_samples_leaf': [4, 8, 12],
+    #           'n_estimators': [300, 400, 500]
+    #           }
+    #
+    # grid_clf = GridSearchCV(estimator=rdf, param_grid=params, cv=cv, n_jobs=-1, verbose=4,scoring=scoring)
+    # grid_clf.fit(feature_train, result_train.ravel())
+    # # 输出找到的最佳参数和分类器的组成
+    # print(grid_clf.best_estimator_)
+    # print(grid_clf.best_params_)
 
     # 联合集成学习的k折交叉验证
     class Create_ensemble(object):
         def __init__(self, n_splits, base_models):
-            self.n_spilts = n_splits
+            self.n_splits = n_splits
             self.base_models = base_models
 
         def predict(self, X, Y):
             X = np.array(X)
             Y = np.array(Y)
 
-            folds = list(StratifiedKFold(n_splits=self.n_spilts, shuffle=True, random_state=random_state).split(X, Y))
+            folds = list(StratifiedKFold(n_splits=self.n_splits, shuffle=True, random_state=random_state).split(X, Y))
             train_pred = np.zeros((X.shape[0], len(self.base_models)))
-            test_pred = np.zeros((T.shape[0], len(self.base_models) * self.n_spilts))
-            acc_scores = np.zeros(len(self.base_models), self.n_spilts)
-            recall_scores = np.zeros(len(self.base_models), self.n_spilts)
-            mcc_scores = np.zeros(len(self.base_models), self.n_spilts)
-            test_col = 0
+            acc_scores = np.zeros((len(self.base_models), self.n_splits))
+            recall_scores = np.zeros((len(self.base_models), self.n_splits))
+            mcc_scores = np.zeros((len(self.base_models), self.n_splits))
+            f1_scores = np.zeros((len(self.base_models), self.n_splits))
             for i, clf in enumerate(self.base_models):
                 for j, (train_idx, valid_idx) in enumerate(folds):
                     X_train = X[train_idx]
@@ -418,17 +417,19 @@ def RandomForest_prediction(feature_data, result_data):
 
                     valid_pred = clf.predict(X_valid)
                     recall = recall_score(Y_valid, valid_pred, average='macro')
-                    acc = accuracy_score(Y_valid, valid_pred, average='macro')
-                    mcc = matthews_corrcoef(Y_valid, valid_pred, average('macro'))
+                    f1 = f1_score(Y_valid, valid_pred, average='macro')
+                    acc = accuracy_score(Y_valid, valid_pred)
+                    mcc = matthews_corrcoef(Y_valid, valid_pred)
 
                     recall_scores[i][j] = recall
+                    f1_scores[i][j] = f1
                     acc_scores[i][j] = acc
                     mcc_scores[i][j] = mcc
 
                     train_pred[valid_idx, i] = valid_pred
 
-                    print("Model- {} and CV- {} recall: {}, acc_score: , mcc_score: {}".format(i, j, recall, acc, mcc))
-            return train_pred,recall_scores,f1_scores
+                    print("Model- {} and CV- {} recall: {}, acc_score: {} , mcc_score: {}".format(i, j, recall, acc, mcc))
+            return train_pred, recall_scores, f1_scores
 
     rdf = RandomForestClassifier(bootstrap=True, class_weight=None, criterion='gini', max_depth=8,
                                  max_features='auto', max_leaf_nodes=None, min_impurity_decrease=0.0,
@@ -439,92 +440,18 @@ def RandomForest_prediction(feature_data, result_data):
     n_splits = 5
     lgb_stack = Create_ensemble(n_splits=n_splits, base_models=base_models)
     train_pred, recall_scores, f1_scores = lgb_stack.predict(feature_data, result_data)
-    print('1. The F-1 score of the model {}\n'.format(f1_score(result_data, train_pred, average='macro')))
-    print('2. The recall score of the model {}\n'.format(recall_score(result_data, train_pred, average='macro')))
-    print('3. Classification report \n {} \n'.format(classification_report(result_data, train_pred)))
-    print('4. Confusion matrix \n {} \n'.format(confusion_matrix(result_data, train_pred)))
-    print('5. The acc score of the model {}\n'.format(accuracy_score(result_data, train_pred, average='macro')))
-    print('6. The sp score of the model {}\n'.format(recall_score(result_data, train_pred, average='macro')))
-    print('7. The sn score of the model {}\n'.format(f1_score(result_data, train_pred, average='macro')))
-    print('8. The mcc score of the model {}\n'.format(matthews_corrcoef(result_data, train_pred, average='macro')))
 
-
-
-
-
-    #
-    # true_positive_num = 0
-    # false_positive_num = 0
-    # true_negative_num = 0
-    # false_negative_num = 0
-    # print('acc = ', np.mean(answer == result_test))
-    # for i in range(len(answer)):
-    #     if(answer[i] == result_test[i]):
-    #         if(answer[i] == 1):
-    #             true_positive_num = true_positive_num + 1
-    #         else:
-    #             true_negative_num = true_negative_num + 1
-    #     else:
-    #         if(answer[i] == 1):
-    #             false_positive_num = false_positive_num + 1
-    #         else:
-    #             false_negative_num = false_negative_num + 1
-    # print(true_negative_num)
-    # print(false_positive_num)
-    # sn = true_positive_num/(true_positive_num + false_negative_num)
-    # sp = true_negative_num/(true_negative_num + false_positive_num)
-    # acc = (true_positive_num + true_negative_num)/(true_positive_num + true_negative_num + false_positive_num + false_negative_num)
-    # mcca = true_positive_num * true_negative_num - false_positive_num * false_negative_num
-    # mccb = (true_positive_num + false_positive_num) * (true_positive_num + false_negative_num) * (true_negative_num + false_positive_num) * (true_negative_num + false_negative_num)
-    # mcc = mcca/math.sqrt(mccb)
-    # print('sn = ', sn)
-    # print('sp = ', sp)
-    # print('acc = ', acc)
-    # print('mcc = ', mcc)
-    # answer55 = clf.predict_proba(feature_test)
-    # # for r in answer55:
-    #     print(r)
-    # print(clf.oob_score)
-    # y_predprob = clf.predict_proba(feature_train)[:, 1]
-    # print("AUC Score (Train): %f" % metrics.roc_auc_score(result_train, y_predprob))
-    # scores = cross_val_score(clf, feature_data, result_data, cv=10)
-    # print(scores)
-    # print("-----------------------------------")
-    # print(scores.mean())
-    # answer22 = cross_val_predict(clf, feature_data, result_data, cv=10)
-    # cacc = metrics.accuracy_score(result_data, answer22)
-    # cauc = metrics.roc_auc_score(result_data, answer22)
-    # print("cacc = ", cacc)
-    # print(" cauc = ", cauc)
-
-
-# BP神经网络的预测
-def addLayer(inputData, inSize, outSize, activity_function = None):
-    Weights = tf.Variable(tf.random_normal([inSize, outSize])) #在正态分布中生成随机数
-    Basis = tf.Variable(tf.zeros([1, outSize])+0.1)
-    Weight_pius_b = tf.matmul(inputData, Weights) + Basis
-    if activity_function is None:
-        outputs = Weight_pius_b
-    else:
-        outputs = activity_function(Weight_pius_b)
-    return outputs
-
-def BP_prediction(feature_data, result_data):
-    feature_train, feature_test, result_train, result_test = train_test_split(feature_data, result_data, test_size=0.1)
-    feature = tf.placeholder(tf.float32, [None, 21])
-    result = tf.placeholder(tf.float32, [None, 1])
-    layer1 = addLayer(feature, 21, 10, activity_function=tf.nn.relu)
-    layer2 = addLayer(layer1, 10, 1, activity_function=None)
-    loss = tf.reduce_mean(tf.reduce_sum(tf.square((result-layer2)), reduction_indices=None))
-    train = tf.train.GradientDescentOptimizer(0.1).minimize(loss)
-    init = tf.global_variables_initializer()
-    sess = tf.Session()
-    sess.run(init)
-    for i in range(1000):
-        sess.run(train, feed_dict={feature:feature_train,result:result_train})
-        if i % 50 == 0:
-            print(sess.run(loss, feed_dict={feature:feature_train,result:result_train}))
-
+    confmat = confusion_matrix(result_data, train_pred)
+    sp = confmat[1, 1]/(confmat[1, 0]+confmat[1, 1])
+    sn = confmat[0, 0]/(confmat[0, 0]+confmat[0, 1])
+    print('1. The acc score of the model {}\n'.format(accuracy_score(result_data, train_pred)))
+    print('2. The sp score of the model {}\n'.format(sp))
+    print('3. The sn score of the model {}\n'.format(sn))
+    print('4. The mcc score of the model {}\n'.format(matthews_corrcoef(result_data, train_pred)))
+    print('5. The F-1 score of the model {}\n'.format(f1_score(result_data, train_pred, average='macro')))
+    print('6. The recall score of the model {}\n'.format(recall_score(result_data, train_pred, average='macro')))
+    print('7. Classification report \n {} \n'.format(classification_report(result_data, train_pred)))
+    print('8. Confusion matrix \n {} \n'.format(confusion_matrix(result_data, train_pred)))
 
 
 if __name__ == '__main__':
@@ -534,16 +461,16 @@ if __name__ == '__main__':
     negative = 0
     positive_array, positive_frequency_site, positive_n_gram_frequency_site = replace_no_native_amino_acid(psiteList, positive)
     negative_array, negative_frequency_site, negative_n_gram_frequency_site = replace_no_native_amino_acid(nsiteList, negative)
-# print("nishizuipangdi")
-# print(positive_frequency_site)
-# print(negative_frequency_site)
-# print('wao')
 
-# 只利用序列编号进行预测
+    # print(positive_frequency_site)
+    # print(negative_frequency_site)
+    # print('wao')
+
+    # 只利用序列编号进行预测
     allarray = np.concatenate((positive_array, negative_array), axis=0)
-# print(allarray)
-# # print(shape(allarray))
-# x, y = np.split(allarray, (21,), axis=1)
+    # print(allarray)
+    # # print(shape(allarray))
+    # x, y = np.split(allarray, (21,), axis=1)
 
     # 利用频率矩阵进行预测
     sum_frequency_site = result_frequency_site(positive_frequency_site, negative_frequency_site, "frequency")
@@ -557,7 +484,7 @@ if __name__ == '__main__':
     positive_n_gram_frequency_array = to_n_gram_site(positive_array, positive, sum_n_gram_frequency_site)
     negative_n_gram_frequency_array = to_n_gram_site(negative_array, negative, sum_n_gram_frequency_site)
     n_gram_frequency_allarray = np.concatenate((positive_n_gram_frequency_array, negative_n_gram_frequency_array), axis=0)
-    x, y =np.split(n_gram_frequency_allarray,(20,), axis=1)
+    # x, y =np.split(n_gram_frequency_allarray, (20,), axis=1)
 
     # 利用skip_gram频率矩阵进行预测
     n = 1
@@ -625,7 +552,8 @@ if __name__ == '__main__':
 
 
     # 联合频率矩阵以及信息熵和条件熵进行预测
-    union_frequency_entropy_array =splice_feature_array(frequency_allarray, conditional_and_entropy_allarray)
+    two_feature_array = splice_feature_array(frequency_allarray, conditional_frequency_array)
+    three_feature_array =splice_feature_array(two_feature_array, conditional_and_entropy_allarray)
     # for r in union_frequency_entropy_array:
     #     print(r)
     # x, y = np.split(union_frequency_entropy_array, (len(union_frequency_entropy_array[0])-1, ), axis=1)
@@ -634,7 +562,7 @@ if __name__ == '__main__':
     positive_position_array = hydrophobic_position_array(psiteList, 1)
     negative_position_array = hydrophobic_position_array(nsiteList, 0)
     position_array = np.concatenate((positive_position_array, negative_position_array), axis=0)
-    four_feature_array = splice_feature_array(union_frequency_entropy_array, position_array)
+    four_feature_array = splice_feature_array(three_feature_array, position_array)
     # x, y = np.split(all_feature_array, (len(all_feature_array[0])-1, ), axis=1)
 
     # 加上n_gram进行预测
