@@ -416,11 +416,12 @@ def RandomForest_prediction(feature_data, result_data):
             return train_proba, train_pred, recall_scores, f1_scores
 
     class_weight = dict({0:20.5,1:1.5})
-    rdf = RandomForestClassifier(bootstrap=True, class_weight=class_weight, criterion='entropy', max_depth=15,
-                                 max_features=40, max_leaf_nodes=None, min_impurity_decrease=0.0,
-                                 min_impurity_split=None, min_samples_leaf=1, min_samples_split=2,
-                                 min_weight_fraction_leaf=0.0, n_estimators=174, n_jobs=-1, oob_score=False,
-                                 random_state=random_state, verbose=0, warm_start=False)
+    # rdf = RandomForestClassifier(bootstrap=True, class_weight=class_weight, criterion='entropy', max_depth=15,
+    #                              max_features=40, max_leaf_nodes=None, min_impurity_decrease=0.0,
+    #                              min_impurity_split=None, min_samples_leaf=1, min_samples_split=2,
+    #                              min_weight_fraction_leaf=0.0, n_estimators=174, n_jobs=-1, oob_score=False,
+    #                              random_state=random_state, verbose=0, warm_start=False)
+    rdf=RandomForestClassifier(random_state=random_state)
     base_models = [rdf]
     n_splits = 10
     lgb_stack = Create_ensemble(n_splits=n_splits, base_models=base_models)
