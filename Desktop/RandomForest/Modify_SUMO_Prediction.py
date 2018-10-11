@@ -293,6 +293,59 @@ def hydrophobic_position_array(allarrary, datatype):
     #     print(r)
     return position1_array
 
+# 根据氨基酸在—1和+2的出现的氨基酸的特性构造两组特征（0，1表示法）
+def hydrophobic_position_array0(allarrary, datatype):
+    native_amino_acid = ('A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L',
+                         'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y',)
+    type1 = ('I', 'L', 'V',)
+    # 0.4388
+    type2 = ('A', 'F', 'M', 'P', 'W',)
+    # -0.031
+    type3 = ('G', 'Y',)
+    # -0.0644
+    # other：-0.3725
+    type4 = ('D', 'E',)
+    # 0.6287
+    # -0.6299
+    position1_array = zeros((len(allarrary), 6))
+    for i in range(len(allarrary)-1):
+
+        # print(allarrary[i][9])
+        if allarrary[i][9] in type1:
+            for j in range(4):
+                if j == 3:
+                    position1_array[i][j] = 1
+                else:
+                    position1_array[i][j] = 0
+        elif allarrary[i][9] in type2:
+            for j in range(4):
+                if j == 2:
+                    position1_array[i][j] = 1
+                else:
+                    position1_array[i][j] = 0
+        elif allarrary[i][9] in type3:
+            for j in range(4):
+                if j == 1:
+                    position1_array[i][j] = 1
+                else:
+                    position1_array[i][j] = 0
+        else:
+            for j in range(4):
+                if j == 0:
+                    position1_array[i][j] = 1
+                else:
+                    position1_array[i][j] = 0
+
+        # print(allarrary[i][12])
+        if allarrary[i][12] in type4:
+            position1_array[i][4] = 0
+        else:
+            position1_array[i][4] = 1
+        position1_array[i][5] = datatype
+    # for r in position1_array:
+    #     print(r)
+    return position1_array
+
 # 特征矩阵拼接
 def splice_feature_array(feature_array_x, feature_array_y):
     sum_feature_array = zeros((len(feature_array_x), len(feature_array_x[0])+len(feature_array_y[0])-1))
@@ -415,7 +468,7 @@ def RandomForest_prediction(feature_data, result_data):
                     print("Model- {} and CV- {} recall: {}, acc_score:{}, mcc_score: {}".format(i, j, recall, acc, mcc))
             return train_proba, train_pred, recall_scores, f1_scores
 
-    class_weight = dict({0:20.5,1:1.5})
+    class_weight = dict({0: 20.5, 1: 1.5})
     # rdf = RandomForestClassifier(bootstrap=True, class_weight=class_weight, criterion='entropy', max_depth=15,
     #                              max_features=40, max_leaf_nodes=None, min_impurity_decrease=0.0,
     #                              min_impurity_split=None, min_samples_leaf=1, min_samples_split=2,
